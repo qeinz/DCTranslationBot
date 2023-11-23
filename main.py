@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands
-from googletrans import Translator
+from googletrans import Translator, LANGUAGES
 import os
 from dotenv import load_dotenv
 
@@ -40,13 +40,24 @@ async def on_raw_reaction_add(payload):
 
     if reaction_counts[payload.message_id][payload.emoji.name] == 1:
         if payload.emoji.name == '🇩🇪' and message.content:
-            translated_message = translate_to_german(message.content)
-            user = await bot.fetch_user(payload.user_id)
-            await reply_translated_message(message, user, '🇩🇪', translated_message)
+            lang = detect_language(message.content)
+
+            if lang == 'de':
+                await message.remove_reaction('🇩🇪', payload.member)
+            else:
+                translated_message = translate_to_german(message.content)
+                user = await bot.fetch_user(payload.user_id)
+                await reply_translated_message(message, user, '🇩🇪', translated_message)
+
         elif payload.emoji.name == '🇬🇧' and message.content:
-            translated_message = translate_to_english(message.content)
-            user = await bot.fetch_user(payload.user_id)
-            await reply_translated_message(message, user, '🇬🇧', translated_message)
+            lang = detect_language(message.content)
+
+            if lang == 'en':
+                await message.remove_reaction('🇬🇧', payload.member)
+            else:
+                translated_message = translate_to_english(message.content)
+                user = await bot.fetch_user(payload.user_id)
+                await reply_translated_message(message, user, '🇬🇧', translated_message)
 
 
 async def reply_translated_message(original_message, user, emoji, translated_message):
@@ -63,6 +74,11 @@ def translate_to_english(message):
     translation = translator.translate(message, dest='en')
     translated_message = translation.text
     return translated_message
+
+
+def detect_language(text):
+    detected_lang = translator.detect(text)
+    return detected_lang.lang if detected_lang else None
 
 
 bot.run(TOKEN)
