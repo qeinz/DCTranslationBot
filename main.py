@@ -13,6 +13,8 @@ intents.message_content = True
 bot = commands.Bot(command_prefix='!', intents=intents)
 translator = Translator()
 
+reaction_counts = {}
+
 
 @bot.event
 async def on_ready():
@@ -28,14 +30,23 @@ async def on_raw_reaction_add(payload):
     channel = await bot.fetch_channel(payload.channel_id)
     message = await channel.fetch_message(payload.message_id)
 
-    if payload.emoji.name == '🇩🇪' and message.content:
-        translated_message = translate_to_german(message.content)
-        user = await bot.fetch_user(payload.user_id)
-        await reply_translated_message(message, user, '🇩🇪', translated_message)
-    elif payload.emoji.name == '🇬🇧' and message.content:
-        translated_message = translate_to_english(message.content)
-        user = await bot.fetch_user(payload.user_id)
-        await reply_translated_message(message, user, '🇬🇧', translated_message)
+    if payload.message_id not in reaction_counts:
+        reaction_counts[payload.message_id] = {}
+
+    if payload.emoji.name not in reaction_counts[payload.message_id]:
+        reaction_counts[payload.message_id][payload.emoji.name] = 1
+    else:
+        reaction_counts[payload.message_id][payload.emoji.name] += 1
+
+    if reaction_counts[payload.message_id][payload.emoji.name] == 1:
+        if payload.emoji.name == '🇩🇪' and message.content:
+            translated_message = translate_to_german(message.content)
+            user = await bot.fetch_user(payload.user_id)
+            await reply_translated_message(message, user, '🇩🇪', translated_message)
+        elif payload.emoji.name == '🇬🇧' and message.content:
+            translated_message = translate_to_english(message.content)
+            user = await bot.fetch_user(payload.user_id)
+            await reply_translated_message(message, user, '🇬🇧', translated_message)
 
 
 async def reply_translated_message(original_message, user, emoji, translated_message):
