@@ -1,12 +1,14 @@
 import discord
 from discord.ext import commands
 from googletrans import Translator
+import os
+from dotenv import load_dotenv
 
-# Dein Bot-Token
-TOKEN = ''
-# Erstelle einen Bot-Client mit Intents
+load_dotenv('.env')
+TOKEN = os.getenv("BOTTOKEN")
+
 intents = discord.Intents.default()
-intents.message_content = True  # Aktiviere das message_content-Event
+intents.message_content = True
 
 bot = commands.Bot(command_prefix='!', intents=intents)
 translator = Translator()
@@ -19,41 +21,37 @@ async def on_ready():
 
 @bot.event
 async def on_raw_reaction_add(payload):
-    # Überprüfe, ob die Reaktion von einem Bot stammt
-    if payload.member.bot:
+    if payload.member is None or payload.member.bot:
+        print(f"Skipped reaction for None or bot member. Payload: {payload}")
         return
 
-    # Überprüfe, ob die Nachricht in Deutsch oder Englisch ist
     channel = await bot.fetch_channel(payload.channel_id)
     message = await channel.fetch_message(payload.message_id)
 
-    # Überprüfe die Reaktion und rufe die entsprechende Übersetzungsfunktion auf
-    if payload.emoji.name == '🇩🇪':
+    if payload.emoji.name == '🇩🇪' and message.content:
         translated_message = translate_to_german(message.content)
-    elif payload.emoji.name == '🇬🇧':
+        user = await bot.fetch_user(payload.user_id)
+        await reply_translated_message(message, user, '🇩🇪', translated_message)
+    elif payload.emoji.name == '🇬🇧' and message.content:
         translated_message = translate_to_english(message.content)
-    else:
-        return  # Ignoriere Reaktionen mit anderen Emojis
+        user = await bot.fetch_user(payload.user_id)
+        await reply_translated_message(message, user, '🇬🇧', translated_message)
 
-    # Antworte auf die ursprüngliche Nachricht und füge das React-Emoji hinzu
-    original_author = message.author
-    emoji = payload.emoji
-    await message.reply(f"{emoji}: {translated_message}", mention_author=False)
+
+async def reply_translated_message(original_message, user, emoji, translated_message):
+    await original_message.reply(content=f"{emoji}: {translated_message}", mention_author=False)
 
 
 def translate_to_german(message):
-    # Hier wird die googletrans-Bibliothek verwendet, um den Text zu übersetzen
     translation = translator.translate(message, dest='de')
     translated_message = translation.text
     return translated_message
 
 
 def translate_to_english(message):
-    # Hier wird die googletrans-Bibliothek verwendet, um den Text zu übersetzen
     translation = translator.translate(message, dest='en')
     translated_message = translation.text
     return translated_message
 
 
-# Starte den Bot
 bot.run(TOKEN)
