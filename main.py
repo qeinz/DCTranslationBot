@@ -1,8 +1,9 @@
+import os
+
 import discord
 from discord.ext import commands
-from googletrans import Translator, LANGUAGES
-import os
 from dotenv import load_dotenv
+from googletrans import Translator
 
 load_dotenv('.env')
 TOKEN = os.getenv("BOTTOKEN")
@@ -13,7 +14,7 @@ intents.message_content = True
 bot = commands.Bot(command_prefix='!', intents=intents)
 translator = Translator()
 
-reaction_counts = {}
+reacted_messages = set()
 
 
 @bot.event
@@ -30,34 +31,30 @@ async def on_raw_reaction_add(payload):
     channel = await bot.fetch_channel(payload.channel_id)
     message = await channel.fetch_message(payload.message_id)
 
-    if payload.message_id not in reaction_counts:
-        reaction_counts[payload.message_id] = {}
+    lang = detect_language(message.content)
 
-    if payload.emoji.name not in reaction_counts[payload.message_id]:
-        reaction_counts[payload.message_id][payload.emoji.name] = 1
-    else:
-        reaction_counts[payload.message_id][payload.emoji.name] += 1
+    if lang == 'en' and payload.emoji.name == '🇬🇧':
+        await message.remove_reaction('🇬🇧', payload.member)
 
-    if reaction_counts[payload.message_id][payload.emoji.name] == 1:
-        if payload.emoji.name == '🇩🇪' and message.content:
-            lang = detect_language(message.content)
+    if lang == 'de' and payload.emoji.name == '🇩🇪':
+        await message.remove_reaction('🇩🇪', payload.member)
 
-            if lang == 'de':
-                await message.remove_reaction('🇩🇪', payload.member)
-            else:
-                translated_message = translate_to_german(message.content)
-                user = await bot.fetch_user(payload.user_id)
-                await reply_translated_message(message, user, '🇩🇪', translated_message)
+    if payload.message_id in reacted_messages:
+        return
 
-        elif payload.emoji.name == '🇬🇧' and message.content:
-            lang = detect_language(message.content)
+    if payload.emoji.name == '🇩🇪' and lang != 'de':
 
-            if lang == 'en':
-                await message.remove_reaction('🇬🇧', payload.member)
-            else:
-                translated_message = translate_to_english(message.content)
-                user = await bot.fetch_user(payload.user_id)
-                await reply_translated_message(message, user, '🇬🇧', translated_message)
+        reacted_messages.add(payload.message_id)
+        translated_message = translate_to_german(message.content)
+        user = await bot.fetch_user(payload.user_id)
+        await reply_translated_message(message, user, '🇩🇪', translated_message)
+
+    elif payload.emoji.name == '🇬🇧' and lang != 'en':
+
+        reacted_messages.add(payload.message_id)
+        translated_message = translate_to_english(message.content)
+        user = await bot.fetch_user(payload.user_id)
+        await reply_translated_message(message, user, '🇬🇧', translated_message)
 
 
 async def reply_translated_message(original_message, user, emoji, translated_message):
